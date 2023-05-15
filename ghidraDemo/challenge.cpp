@@ -171,6 +171,132 @@ class CrypticHash702 : public CrypticHash {
     }
 };
 
+class CrypticHash520 : public CrypticHash {
+  protected:
+    virtual unsigned int rounds()
+    {
+        return 12;
+    }
+
+    virtual void round_update()
+    {
+        accumulator ^= rotl(accumulator % 0xE7FD34C3, 2);
+    }
+};
+
+
+class CrypticCRC512 : public CrypticBase {
+  protected:
+    virtual unsigned int rounds()
+    {
+        return 1;
+    }
+
+    virtual void round()
+    {
+        unsigned int in_sz_word = in_sz / 4;
+        unsigned int i;
+        uint32_t rem_word = 0;
+
+        for (i = 0; i < in_sz_word; i++)
+        {
+            step(*((uint32_t *)in_d + i));
+        }
+
+        for (i = in_sz_word * 4; i < in_sz; i++)
+        {
+            rem_word >>= 8;
+            rem_word |= (*((char *)in_d + i)) << 24;
+        }
+        step(rem_word);
+    }
+
+    virtual void step(uint32_t d)
+    {
+        accumulator ^= d;
+        for(unsigned int n = 0; n < 32; n++)
+        {
+            unsigned int carry = accumulator & 1;
+            accumulator = (accumulator >> 1);
+
+            if(carry != 0)
+            {
+                accumulator ^= 0xA0000001;
+            }
+        }
+    }
+};
+
+
+class CrypticCksum : public CrypticBase {
+  protected:
+    virtual unsigned int rounds()
+    {
+        return 1;
+    }
+
+    virtual void round()
+    {
+        unsigned int in_sz_word = in_sz / 2;
+        unsigned int i;
+        uint16_t rem_word = 0;
+
+        for (i = 0; i < in_sz_word; i++)
+        {
+            step(*((uint16_t *)in_d + i));
+        }
+
+        for (i = in_sz_word * 2; i < in_sz; i++)
+        {
+            rem_word >>= 8;
+            rem_word |= (*((char *)in_d + i)) << 8;
+        }
+        step(rem_word);
+    }
+
+    virtual void step(uint32_t d)
+    {
+        accumulator += d;
+    }
+};
+
+
+class CrypticClass {
+  public:
+    enum Which : int {
+        CH702,
+        CH520,
+        CC512,
+        CCSUM,
+    };
+
+    CrypticClass() = default;
+    constexpr CrypticClass(Which which) : which(which) { }
+
+    const char * get_name() {
+        switch (which)
+        {
+          case CrypticClass::CH702:
+            return "CH702";
+          case CrypticClass::CH520:
+            return "CH520";
+          case CrypticClass::CC512:
+            return "CC512";
+          case CrypticClass::CCSUM:
+            return "CCSUM";
+          default:
+            throw std::invalid_argument("Unknown CrypticClass");
+        }
+    }
+
+    constexpr operator Which() const { return which; }
+    explicit operator bool() const = delete;
+
+  private:
+    Which which;
+};
+
+
 
 class ObjSysObj {
   public:
@@ -217,9 +343,31 @@ class CryptoDelegate {
 
 class CryptoDelegateImpl : public CryptoDelegate, public ObjSysObj {
   public:
+    CryptoDelegateImpl(CrypticClass which) : which(which) {}
+
+    CrypticClass which;
     virtual void init()
     {
-        crypt = new CrypticHash702();
+        switch (which)
+        {
+          case CrypticClass::CH702:
+            crypt = new CrypticHash702();
+            break;
+          case CrypticClass::CH520:
+            crypt = new CrypticHash520();
+            break;
+          case CrypticClass::CC512:
+            crypt = new CrypticCRC512();
+            break;
+          case CrypticClass::CCSUM:
+            crypt = new CrypticCksum();
+            break;
+        }
+
+        if (false)
+        {
+            cout << which.get_name() << endl;
+        }
     }
 
     virtual void * parent() { return nullptr; }
@@ -254,7 +402,7 @@ void sigint_handler(int s)
 
 int main()
 {
-    CryptoDelegate * crypt = new CryptoDelegateImpl();
+    CryptoDelegate * crypt = new CryptoDelegateImpl(CrypticClass::CC512);
     Controller controller = Controller(crypt);
     signal(SIGINT, sigint_handler);
 
