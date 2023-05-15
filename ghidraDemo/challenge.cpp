@@ -137,7 +137,7 @@ class CrypticBase {
 
 class CrypticHash : public CrypticBase {
   protected:
-    virtual void round_update();
+    virtual void round_update() = 0;
 
     virtual void round()
     {
@@ -374,24 +374,6 @@ class CryptoDelegateImpl : public CryptoDelegate, public ObjSysObj {
     virtual const char * name() { return what_is_this; }
 };
 
-class Controller {
-  public:
-    Controller(CryptoDelegate * cd) : cryptoDelegate(cd) {}
-
-    void prompt()
-    {
-        string input;
-        cout << "Enter some text:" << endl;
-        getline(cin, input);
-
-        cout << "Here is a number:" << endl;
-        cout << cryptoDelegate->cryptify_string(input) << endl;
-    }
-
-  protected:
-    CryptoDelegate * cryptoDelegate;
-};
-
 
 static bool run = true;
 
@@ -403,12 +385,16 @@ void sigint_handler(int s)
 int main()
 {
     CryptoDelegate * crypt = new CryptoDelegateImpl(CrypticClass::CC512);
-    Controller controller = Controller(crypt);
     signal(SIGINT, sigint_handler);
 
     while (run)
     {
-        controller.prompt();
+        string input;
+        cout << "Enter some text:" << endl;
+        getline(cin, input);
+
+        cout << "Here is a number:" << endl;
+        cout << crypt->cryptify_string(input) << endl;
     }
 
     delete crypt;
