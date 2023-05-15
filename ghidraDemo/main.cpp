@@ -4,6 +4,7 @@ using namespace std;
 
 class Base {
   public:
+    Base(unsigned int b) : b(b) {}
     virtual void foo (void);
     virtual void bar (void);
     unsigned int b;
@@ -14,34 +15,35 @@ void Base::foo(void) {
 }
 
 void Base::bar(void) {
-    cout << "bar" << endl;
+    cout << "bar " << b << endl;
 }
 
 class Quirk {
   public:
     virtual void quirk (void);
-    void * Q;
+    void * Q = nullptr;
 };
 
 void Quirk::quirk(void) {
-    cout << "quirk" << endl;
+    cout << "quirk " << Q << endl;
 }
 
 class Derived : public Quirk, public Base {
   public:
+    Derived(unsigned int b, unsigned char d) : Base(b), d(d) {}
     virtual void baz (void);
     void bar (void);
     unsigned char d;
 };
 
 void Derived::bar(void) {
+    cout << "Derived ";
     Base::bar();
-    cout << "Derived" << endl;
 }
 
 void Derived::baz(void) {
     quirk();
-    cout << "baz" << endl;
+    cout << "baz " << d << endl;
 }
 
 
@@ -52,16 +54,30 @@ void do_bar(Base& object) {
 
 int main()
 {
-    Base * obj = new Base();
-    obj->bar();
+    Base * objBase = new Base(1);
+    objBase->foo();
+    objBase->bar();
+    cout << endl;
+
+    Quirk * objQuirk = new Quirk();
+    objQuirk->Q = objQuirk;
+    objQuirk->quirk();
+    cout << endl;
+
+    Derived * objDerived = new Derived(2, '3');
+    objDerived->Q = objDerived;
+    objDerived->foo();
+    objDerived->bar();
+    objDerived->baz();
+    objDerived->quirk();
+    cout << endl;
 
     // Upcasting
-    Derived * obj2 = new Derived();
-    Base * obj2b = static_cast<Base*>(obj2);
-    obj2->foo();
-    obj2b->foo();
-    do_bar(*obj2);
-    do_bar(*obj);
+    Base * derivedAsBase = static_cast<Base*>(objDerived);
+    objDerived->foo();
+    derivedAsBase->foo();
+    do_bar(*objDerived);
+    do_bar(*derivedAsBase);
 
     return 0;
 }
